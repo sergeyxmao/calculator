@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор заработка</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select, .form-group button {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .calendar-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .month {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 150px;
+        }
+        .month-header {
+            font-weight: bold;
+            text-align: center;
+        }
+        .week {
+            display: flex;
+            justify-content: space-between;
+        }
+        .day {
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            text-align: center;
+            margin: 2px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+        }
+        .day.weekend {
+            background-color: #add8e6;
+        }
+        .day.selected {
+            background-color: #ff0000;
+            color: white;
+        }
+        .result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .checkbox-container label {
+            margin-left: 10px;
+        }
+        .subscribe-button {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Калькулятор заработка</h1>
+    <form id="earningsCalculator">
+        <div class="form-group">
+            <label for="amount">Сумма, которую хотите заработать (руб):</label>
+            <input type="number" id="amount" name="amount" placeholder="Введите сумму" required>
+        </div>
+        <div class="form-group">
+            <label for="startDate">Дата начала:</label>
+            <input type="date" id="startDate" value="2024-11-24" required>
+        </div>
+        <div class="form-group">
+            <label for="endDate">Дата окончания:</label>
+            <input type="date" id="endDate" required>
+        </div>
+        <div class="form-group">
+            <label>Выберите нерабочие дни:</label>
+            <div class="calendar-container" id="calendarContainer"></div>
+        </div>
+        <div class="form-group checkbox-container">
+            <input type="checkbox" id="weekends" name="weekends">
+            <label for="weekends">Учитывать выходные? Да</label>
+        </div>
+        <div class="form-group">
+            <label for="hours">Часов работы в день:</label>
+            <input type="number" id="hours" name="hours" placeholder="Введите количество часов" required>
+        </div>
+        <button type="button" onclick="showModal()">Рассчитать</button>
+    </form>
+
+    <div class="result" id="result"></div>
+</div>
+
+<div id="subscriptionModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>Подпишитесь на наши каналы</h2>
+        <p>Для продолжения расчета, пожалуйста, подпишитесь на наши каналы:</p>
+        <p><a href="https://vk.me/elena_dortman" target="_blank" id="vkLink">ВК - БЭМ / Массаж / ТЮМЕНЬ</a></p>
+        <p><a href="https://t.me/BEM_TYUMEN" target="_blank" id="tgLink">Telegram - БЭМ / Массаж / ТЮМЕНЬ</a></p>
+        <button class="subscribe-button" onclick="calculateEarnings()">Я подписался</button>
+    </div>
+</div>
+
+<script>
+    let excludedDates = [];
+
+    document.getElementById('startDate').addEventListener('change', generateCalendars);
+    document.getElementById('endDate').addEventListener('change', generateCalendars);
+
+    function generateCalendars() {
+        const startDate = new Date(document.getElementById('startDate').value);
+        const endDate = new Date(document.getElementById('endDate').value);
+        const calendarContainer = document.getElementById('calendarContainer');
+        calendarContainer.innerHTML = '';
+
+        if (!startDate || !endDate || startDate > endDate) {
+            alert("Введите корректные начальную и конечную даты.");
+            return;
+        }
+
+        const startMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+        const endMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 1);
+
+        for (let m = new Date(startMonth); m < endMonth; m.setMonth(m.getMonth() + 1)) {
+            const month = new Date(m);
+            const monthDiv = document.createElement('div');
+            monthDiv.className = 'month';
+            const monthHeader = document.createElement('div');
+            monthHeader.className = 'month-header';
+            monthHeader.textContent = month.toLocaleString('ru', { month: 'long', year: 'numeric' });
+            monthDiv.appendChild(monthHeader);
+
+            const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+            const firstDayOfWeek = new Date(month.getFullYear(), month.getMonth(), 1).getDay() === 0 ? 7 : new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+            const lastDayOfWeek = new Date(month.getFullYear(), month.getMonth(), daysInMonth).getDay() === 0 ? 7 : new Date(month.getFullYear(), month.getMonth(), daysInMonth).getDay();
+
+            let weekDiv = document.createElement('div');
+            weekDiv.className = 'week';
+
+            for (let d = 1 - firstDayOfWeek + 1; d <= daysInMonth + (7 - lastDayOfWeek); d++) {
+                const day = new Date(month.getFullYear(), month.getMonth(), d);
+                if (day < startDate || day > endDate) continue;
+
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day';
+                dayDiv.textContent = day.getDate();
+                dayDiv.dataset.date = day.toISOString().split('T')[0];
+
+                if (day.getDay() === 6 || day.getDay() === 0) {
+                    dayDiv.classList.add('weekend');
+                }
+
+                dayDiv.addEventListener('click', () => {
+                    const dateStr = dayDiv.dataset.date;
+                    if (excludedDates.includes(dateStr)) {
+                        excludedDates = excludedDates.filter(date => date !== dateStr);
+                        dayDiv.classList.remove('selected');
+                    } else {
+                        excludedDates.push(dateStr);
+                        dayDiv.classList.add('selected');
+                    }
+                });
+
+                weekDiv.appendChild(dayDiv);
+
+                if (weekDiv.children.length === 7 || d === daysInMonth) {
+                    monthDiv.appendChild(weekDiv);
+                    weekDiv = document.createElement('div');
+                    weekDiv.className = 'week';
+                }
+            }
+
+            calendarContainer.appendChild(monthDiv);
+        }
+    }
+
+    function showModal() {
+        document.getElementById('subscriptionModal').style.display = 'block';
+        document.querySelector('.subscribe-button').style.display = 'none';
+    }
+
+    function closeModal() {
+        document.getElementById('subscriptionModal').style.display = 'none';
+    }
+
+    document.getElementById('vkLink').addEventListener('click', function() {
+        document.querySelector('.subscribe-button').style.display = 'block';
+    });
+
+    document.getElementById('tgLink').addEventListener('click', function() {
+        document.querySelector('.subscribe-button').style.display = 'block';
+    });
+
+    function calculateEarnings() {
+        closeModal();
+        const amount = parseFloat(document.getElementById('amount').value);
+        const startDate = new Date(document.getElementById('startDate').value);
+        const endDate = new Date(document.getElementById('endDate').value);
+        const includeWeekends = document.getElementById('weekends').checked;
+        const hours = parseFloat(document.getElementById('hours').value);
+
+        if (isNaN(amount) || isNaN(hours) || !startDate || !endDate || startDate > endDate) {
+            alert("Пожалуйста, введите корректные данные.");
+            return;
+        }
+
+        const msInDay = 24 * 60 * 60 * 1000;
+        let validDays = 0;
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+            const isExcluded = excludedDates.includes(d.toISOString().split('T')[0]);
+
+            if ((includeWeekends || !isWeekend) && !isExcluded) {
+                validDays++;
+            }
+        }
+
+        if (validDays === 0) {
+            alert("Нет доступных рабочих дней в выбранном диапазоне.");
+            return;
+        }
+
+        const hourlyEarnings = amount / (validDays * hours);
+        const dailyEarnings = hourlyEarnings * hours;
+        const weeklyEarnings = dailyEarnings * 7;
+
+        const resultText = `Для заработка ${amount} руб. за данный период, который составляет ${validDays} дней (с учетом ${hours} часов работы в день), вам нужно зарабатывать:<br>
+        В час - ${hourlyEarnings.toFixed(2)} руб.<br>
+        В день - ${dailyEarnings.toFixed(2)} руб.<br>
+        В неделю - ${weeklyEarnings.toFixed(2)} руб.`;
+
+        document.getElementById('result').innerHTML = resultText;
+    }
+</script>
+
+</body>
+</html>
